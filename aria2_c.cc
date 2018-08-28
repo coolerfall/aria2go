@@ -5,12 +5,12 @@
 #include <sstream>
 #include <string.h>
 
-std::vector<std::string> splitByComma(std::string in) {
+std::vector<std::string> splitBySemicolon(std::string in) {
   std::string val;
   std::stringstream is(in);
   std::vector<std::string> out;
 
-  while (getline(is, val, ',')) {
+  while (getline(is, val, ';')) {
     out.push_back(val);
   }
   return out;
@@ -82,7 +82,8 @@ uint64_t addUri(char *uri) {
 }
 
 /**
- * Parse torrent file for given file path.
+ * Parse torrent file for given file path. This will just retrieve related
+ * information from torrent file, and aria2 will not download it.
  */
 struct TorrentInfo *parseTorrent(char *fp) {
   aria2::KeyVals options;
@@ -100,12 +101,37 @@ struct TorrentInfo *parseTorrent(char *fp) {
   }
 
   std::vector<aria2::FileData> files = dh->getFiles();
+  aria2::BtMetaInfoData btMetaInfo = dh->getBtMetaInfo();
+
   struct TorrentInfo *ti = new TorrentInfo();
-  int total = files.size();
+  int numFiles = files.size();
   std::string dir = dh->getDir();
-  ti->totalFile = total;
+  ti->numFiles = numFiles;
   ti->infoHash = toCStr(dh->getInfoHash());
-  struct FileInfo *allFiles = new FileInfo[total];
+
+  /* retrieve all BitTorrent meta information */
+  struct MetaInfo *mi = new MetaInfo();
+  mi->name = toCStr(btMetaInfo.name);
+  mi->comment = toCStr(btMetaInfo.comment);
+  mi->creationUnix = btMetaInfo.creationDate;
+  std::vector<std::vector<std::string>> announceList = btMetaInfo.announceList;
+  std::vector<std::vector<std::string>>::iterator it;
+  std::string cAnnounceList;
+  for (it = announceList.begin(); it != announceList.end(); it++) {
+    std::vector<std::string>::iterator cit;
+    std::vector<std::string> childList = *it;
+    for (cit = childList.begin(); cit != childList.end(); cit++) {
+      cAnnounceList += *cit;
+      if (it != announceList.end() - 1 || cit != childList.end() - 1) {
+        cAnnounceList += ";";
+      }
+    }
+  }
+  mi->announceList = toCStr(cAnnounceList);
+  ti->metaInfo = mi;
+
+  /* retrieve all files information */
+  struct FileInfo *allFiles = new FileInfo[numFiles];
   for (int i = 0; i < files.size(); i++) {
     aria2::FileData file = files[i];
     struct FileInfo *fi = new FileInfo();
@@ -117,6 +143,8 @@ struct TorrentInfo *parseTorrent(char *fp) {
     allFiles[i] = *fi;
   }
   ti->files = allFiles;
+
+  /* remove from download queue, just retrieve information */
   aria2::deleteDownloadHandle(dh);
   aria2::removeDownload(session, gid);
 
@@ -130,7 +158,7 @@ uint64_t addTorrent(char *fp, const char *coptions) {
   aria2::KeyVals options;
   aria2::A2Gid gid;
 
-  std::vector<std::string> o = splitByComma(std::string(coptions));
+  std::vector<std::string> o = splitBySemicolon(std::string(coptions));
   for (int i = 0; i < o.size(); i += 2) {
     std::string key = o[i];
     std::string val = o[i + 1];
@@ -153,7 +181,7 @@ bool changeOptions(uint64_t gid, const char *options) {
     return true;
   }
 
-  std::vector<std::string> o = splitByComma(std::string(options));
+  std::vector<std::string> o = splitBySemicolon(std::string(options));
   /* key and val should be pair */
   if (o.size() % 2 != 0) {
     return false;
@@ -193,9 +221,12 @@ bool pause(uint64_t gid) { return aria2::pauseDownload(session, gid) == 0; }
 bool resume(uint64_t gid) { return aria2::unpauseDownload(session, gid) == 0; }
 
 /**
- * Remove a download in queue. This will stop seeding(for torrent) and downloading.
+ * Remove a download in queue with given gid. This will stop downloading and
+ * seeding(for torrent).
  */
-bool removeDownload(uint64_t gid) { return aria2::removeDownload(session, gid) == 0; }
+bool removeDownload(uint64_t gid) {
+  return aria2::removeDownload(session, gid) == 0;
+}
 
 /**
  * Get download information for current download with given gid.

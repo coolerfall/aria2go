@@ -12,8 +12,9 @@ extern "C" {
  * Type definition for torrent information.
  */
 struct TorrentInfo {
-  int totalFile;
+  int numFiles;
   const char *infoHash;
+  struct MetaInfo *metaInfo;
   struct FileInfo *files;
 };
 
@@ -25,6 +26,16 @@ struct FileInfo {
   const char *name;
   int64_t length;
   bool selected;
+};
+
+/**
+ * Type definition for BitTorrent meta information.
+ */
+struct MetaInfo {
+  const char *name;
+  const char *comment;
+  int64_t creationUnix;
+  const char *announceList;
 };
 
 /**

@@ -15,12 +15,14 @@ func main() {
 	}()
 	// gid, _ := a.AddUri("http://mirrors.evowise.com/archlinux/iso/2018.08.01/archlinux-2018.08.01-x86_64.iso")
 	// log.Printf("gid: %v", gid)
-	infoHash, files, err := a.ParseTorrent("/home/cooler/下载/deadpool.torrent")
+	btInfo, err := a.ParseTorrent("test/test.torrent")
 	if err != nil {
 		return
 	}
-	log.Printf("info hash: %v", infoHash)
-	for _, f := range files {
+	log.Printf("info hash: %v", btInfo.InfoHash)
+	log.Printf("name: %v", btInfo.MetaInfo.Name)
+	log.Printf("announce list: %v", btInfo.MetaInfo.AnnounceList)
+	for _, f := range btInfo.Files {
 		log.Printf("file %v", f)
 	}
 
@@ -33,7 +35,7 @@ func main() {
 	for {
 		time.Sleep(time.Second)
 		di := a.GetDownloadInfo(gid)
-		log.Printf("download speed: %vKib/s", di.DownloadSpeed / 1024.0)
-		log.Printf("bytes completed: %vM", float64(di.BytesCompleted) / 1024.0 / 1024.0)
+		log.Printf("download speed: %vKib/s", di.DownloadSpeed/1024.0)
+		log.Printf("bytes completed: %vM", float64(di.BytesCompleted)/1024.0/1024.0)
 	}
 }
