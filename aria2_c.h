@@ -13,9 +13,13 @@ extern "C" {
  */
 struct TorrentInfo {
   int totalFile;
+  const char *infoHash;
   struct FileInfo *files;
 };
 
+/**
+ * Type definition for file information in torrent.
+ */
 struct FileInfo {
   int index;
   const char *name;
@@ -23,6 +27,9 @@ struct FileInfo {
   bool selected;
 };
 
+/**
+ * Type definition for download information.
+ */
 struct DownloadInfo {
   int status;
   int64_t totalLength;
@@ -40,6 +47,7 @@ bool changeOptions(uint64_t gid, const char *options);
 void start();
 bool pause(uint64_t gid);
 bool resume(uint64_t gid);
+bool removeDownload(uint64_t gid);
 struct DownloadInfo *getDownloadInfo(uint64_t gid);
 
 #ifdef __cplusplus

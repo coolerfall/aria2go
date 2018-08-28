@@ -104,6 +104,7 @@ struct TorrentInfo *parseTorrent(char *fp) {
   int total = files.size();
   std::string dir = dh->getDir();
   ti->totalFile = total;
+  ti->infoHash = toCStr(dh->getInfoHash());
   struct FileInfo *allFiles = new FileInfo[total];
   for (int i = 0; i < files.size(); i++) {
     aria2::FileData file = files[i];
@@ -190,6 +191,11 @@ bool pause(uint64_t gid) { return aria2::pauseDownload(session, gid) == 0; }
  * Resume a paused download with given gid. See `pause`.
  */
 bool resume(uint64_t gid) { return aria2::unpauseDownload(session, gid) == 0; }
+
+/**
+ * Remove a download in queue. This will stop seeding(for torrent) and downloading.
+ */
+bool removeDownload(uint64_t gid) { return aria2::removeDownload(session, gid) == 0; }
 
 /**
  * Get download information for current download with given gid.
