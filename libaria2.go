@@ -4,8 +4,7 @@ package aria2go
 
 /*
  #cgo CXXFLAGS: -std=c++11
- #cgo LDFLAGS: -lcrypto -lgcrypt
- #cgo LDFLAGS: -L ./aria2-lib/lib -laria2 -lssh2 -lcares -lsqlite3 -lz -lexpat -lssl
+ #cgo LDFLAGS: -L ./aria2-lib/lib -laria2 -lssh2 -lcrypto -lssl -lcares -lsqlite3 -lz -lexpat
  #include "aria2_c.h"
 */
 import "C"
@@ -24,7 +23,7 @@ type Aria2 struct {
 // NewAria2 creates a new instance of aria2.
 func NewAria2() *Aria2 {
 	a := &Aria2{
-		notifier: NewDefaultNotifier(),
+		notifier: newDefaultNotifier(),
 	}
 	C.init(C.ulong(uintptr(unsafe.Pointer(a))))
 	return a
@@ -55,13 +54,14 @@ func (a *Aria2) AddUri(uri string) (gid string, err error) {
 }
 
 // ParseTorrent parses torrent file into torrent information.
-// This will return all files and their size.
-func (a *Aria2) ParseTorrent(filepath string) (files []File, err error) {
+// This will return 20 bytes info hash, all files in torrent.
+func (a *Aria2) ParseTorrent(filepath string) (infoHash string, files []File, err error) {
 	ret := C.parseTorrent(C.CString(filepath))
 	if ret == nil {
-		return nil, errors.New("no data in torrent file")
+		return "", nil, errors.New("no data in torrent file")
 	}
 
+	infoHash = fmt.Sprintf("%x", []byte(C.GoString(ret.infoHash)))
 	length := ret.totalFile
 	cfiles := (*[1 << 30]C.struct_FileInfo)(unsafe.Pointer(ret.files))[:length:length]
 	for _, f := range cfiles {
@@ -111,15 +111,21 @@ func (a *Aria2) ChangeOptions(gid string, options Options) error {
 	return nil
 }
 
-// Pause pauses an active downloading for given gid. The status of the download
+// Pause pauses an active download for given gid. The status of the download
 // will become `DOWNLOAD_PAUSED`. Use `Resume` to restart download.
 func (a *Aria2) Pause(gid string) bool {
 	return bool(C.pause(a.hexToGid(gid)))
 }
 
-// Resume resumes an paused downloading for given gid.
+// Resume resumes an paused download for given gid.
 func (a *Aria2) Resume(gid string) bool {
 	return bool(C.resume(a.hexToGid(gid)))
+}
+
+// Remove removes download no matter what status it was. This will stop
+// downloading and stop seeding(for torrent).
+func (a *Aria2) Remove(gid string) bool {
+	return bool(C.removeDownload(a.hexToGid(gid)))
 }
 
 // GetDownloadInfo gets current download information for given gid.

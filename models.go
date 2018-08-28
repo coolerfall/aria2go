@@ -15,20 +15,20 @@ type DownloadInfo struct {
 
 // Type definition for bit torrent.
 type BitTorrent struct {
-	Announces       [][]string `json:"announceList"`
-	Comment         string     `json:"comment"`
-	CreationSeconds int        `json:"creationDate"`
-	Mode            string     `json:"mode"`
-	VerifiedLength  int64      `json:"verifiedLength,string"`
-	VerifyPending   bool       `json:"verifyIntegrityPending,string"`
+	Announces       [][]string
+	Comment         string
+	CreationSeconds int
+	Mode            string
+	VerifiedLength  int64
+	VerifyPending   bool
 }
 
 // Type definition for bit torrent detail information.
 type BitTorrentInfo struct {
-	Hash     string     `json:"infoHash"`
-	Seeders  int        `json:"numSeeders,string"`
-	IsSeeder bool       `json:"seeder,string"`
-	Torrent  BitTorrent `json:"bittorrent"`
+	Hash     string
+	Seeders  int
+	IsSeeder bool
+	Torrent  BitTorrent
 }
 
 // Type definition for file in torrent.
@@ -43,12 +43,12 @@ type Options map[string]string
 
 // Type definition for peer of bit torrent.
 type Peer struct {
-	PeerId        string `json:"peerId"`
-	Ip            string `json:"ip"`
-	Port          string `json:"port"`
-	DownloadSpeed string `json:"downloadSpeed"`
-	UploadSpeed   string `json:"uploadSpeed"`
-	IsSeeder      bool   `json:"seeder,string"`
+	PeerId        string
+	Ip            string
+	Port          string
+	DownloadSpeed string
+	UploadSpeed   string
+	IsSeeder      bool
 }
 
 // Type definition for download event, this will keep the same with aria2.

@@ -27,8 +27,8 @@ type Notifier interface {
 // Type definition for default notifier which dose nothing.
 type DefaultNotifier struct{}
 
-// NewDefaultNotifier creates a new instance of default Notifier.
-func NewDefaultNotifier() Notifier {
+// newDefaultNotifier creates a new instance of default Notifier.
+func newDefaultNotifier() Notifier {
 	return DefaultNotifier{}
 }
 

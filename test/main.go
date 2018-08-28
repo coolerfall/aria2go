@@ -15,10 +15,11 @@ func main() {
 	}()
 	// gid, _ := a.AddUri("http://mirrors.evowise.com/archlinux/iso/2018.08.01/archlinux-2018.08.01-x86_64.iso")
 	// log.Printf("gid: %v", gid)
-	files, err := a.ParseTorrent("/home/cooler/下载/deadpool.torrent")
+	infoHash, files, err := a.ParseTorrent("/home/cooler/下载/deadpool.torrent")
 	if err != nil {
 		return
 	}
+	log.Printf("info hash: %v", infoHash)
 	for _, f := range files {
 		log.Printf("file %v", f)
 	}
