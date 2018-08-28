@@ -1,0 +1,6 @@
+.idea
+.vscode
+vendor
+Gopkg.lock
+aria2-lib
+_obj

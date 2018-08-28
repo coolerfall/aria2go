@@ -1,0 +1,18 @@
+language: go
+
+go:
+  - "1.8"
+  - "1.9"
+  - "1.10.x"
+
+before_install:
+  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+  - mkdir -p $GOPATH/src/anbillon.com && cd .. && mv ariago $GOPATH/src/anbillon.com/
+  - cd $GOPATH/src/anbillon.com/ariago
+
+install:
+  - dep ensure -v
+
+script:
+  - go test ./...
+  - go build
