@@ -104,14 +104,7 @@ func (a *Aria2) ParseTorrent(filepath string) (*BitTorrentInfo, error) {
 // This will return gid and files in torrent file if add successfully.
 // User can choose specified files to download, change directory and so on.
 func (a *Aria2) AddTorrent(filepath string, options Options) (gid string, err error) {
-	var cOptions string
-	for k, v := range options {
-		cOptions += k
-		cOptions += ";"
-		cOptions += v
-	}
-
-	ret := C.addTorrent(C.CString(filepath), C.CString(cOptions))
+	ret := C.addTorrent(C.CString(filepath), C.CString(a.convertOptions(options)))
 	if ret == 0 {
 		return "", errors.New("add torrent failed")
 	}
@@ -121,14 +114,7 @@ func (a *Aria2) AddTorrent(filepath string, options Options) (gid string, err er
 // ChangeOptions can change the options for aria2. See available options in
 // https://aria2.github.io/manual/en/html/aria2c.html#input-file.
 func (a *Aria2) ChangeOptions(gid string, options Options) error {
-	var cOptions string
-	for k, v := range options {
-		cOptions += k
-		cOptions += ","
-		cOptions += v
-	}
-
-	if !C.changeOptions(a.hexToGid(gid), C.CString(cOptions)) {
+	if !C.changeOptions(a.hexToGid(gid), C.CString(a.convertOptions(options))) {
 		return errors.New("change option error")
 	}
 
@@ -167,6 +153,17 @@ func (a *Aria2) GetDownloadInfo(gid string) DownloadInfo {
 		DownloadSpeed:  int(ret.downloadSpeed),
 		UploadSpeed:    int(ret.uploadSpeed),
 	}
+}
+
+// convertOptions converts `Options` to string with ';' separator.
+func (a *Aria2) convertOptions(options Options) string {
+	var cOptions string
+	for k, v := range options {
+		cOptions += k + ";"
+		cOptions += v + ";"
+	}
+
+	return strings.TrimSuffix(cOptions, ";")
 }
 
 // hexToGid convert hex to uint64 type gid.
