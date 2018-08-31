@@ -50,11 +50,14 @@ struct DownloadInfo {
   int uploadSpeed;
 };
 
-int init(uint64_t aria2goPointer);
+int init(uint64_t aria2goPointer, const char *options);
 uint64_t addUri(char *uri);
 struct TorrentInfo *parseTorrent(char *fp);
 uint64_t addTorrent(char *fp, const char *options);
 bool changeOptions(uint64_t gid, const char *options);
+const char *getOptions(uint64_t gid);
+bool changeGlobalOptions(const char *options);
+const char *getGlobalOptions();
 void start();
 bool pause(uint64_t gid);
 bool resume(uint64_t gid);

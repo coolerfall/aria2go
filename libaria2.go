@@ -12,8 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"unsafe"
 	"strings"
+	"unsafe"
 )
 
 // Type definition for lib aria2, it holds a notifier.
@@ -23,10 +23,16 @@ type Aria2 struct {
 
 // NewAria2 creates a new instance of aria2.
 func NewAria2() *Aria2 {
+	return NewAria2WithOptions(nil)
+}
+
+// NewAria2WithOptions creates a new instance of aira2 with global options.
+// See `ChangeGlobalOptions` also.
+func NewAria2WithOptions(options Options) *Aria2 {
 	a := &Aria2{
 		notifier: newDefaultNotifier(),
 	}
-	C.init(C.ulong(uintptr(unsafe.Pointer(a))))
+	C.init(C.ulong(uintptr(unsafe.Pointer(a))), C.CString(a.fromOptions(options)))
 	return a
 }
 
@@ -104,7 +110,7 @@ func (a *Aria2) ParseTorrent(filepath string) (*BitTorrentInfo, error) {
 // This will return gid and files in torrent file if add successfully.
 // User can choose specified files to download, change directory and so on.
 func (a *Aria2) AddTorrent(filepath string, options Options) (gid string, err error) {
-	ret := C.addTorrent(C.CString(filepath), C.CString(a.convertOptions(options)))
+	ret := C.addTorrent(C.CString(filepath), C.CString(a.fromOptions(options)))
 	if ret == 0 {
 		return "", errors.New("add torrent failed")
 	}
@@ -114,11 +120,37 @@ func (a *Aria2) AddTorrent(filepath string, options Options) (gid string, err er
 // ChangeOptions can change the options for aria2. See available options in
 // https://aria2.github.io/manual/en/html/aria2c.html#input-file.
 func (a *Aria2) ChangeOptions(gid string, options Options) error {
-	if !C.changeOptions(a.hexToGid(gid), C.CString(a.convertOptions(options))) {
-		return errors.New("change option error")
+	if !C.changeOptions(a.hexToGid(gid), C.CString(a.fromOptions(options))) {
+		return errors.New("change options error")
 	}
 
 	return nil
+}
+
+// GetOptions gets all options for given gid.
+func (a *Aria2) GetOptions(gid string) Options {
+	cOptions := C.getOptions(a.hexToGid(gid))
+	if cOptions == nil {
+		return make(Options)
+	}
+
+	return a.toOptions(C.GoString(cOptions))
+}
+
+// ChangeGlobalOptions changes global options. See available options in
+// https://aria2.github.io/manual/en/html/aria2c.html#input-file except for
+// `checksum`, `index-out`, `out`, `pause` and `select-file`.
+func (a *Aria2) ChangeGlobalOptions(options Options) error {
+	if !C.changeGlobalOptions(C.CString(a.fromOptions(options))) {
+		return errors.New("change global options error")
+	}
+
+	return nil
+}
+
+// GetGlobalOptions gets all global options of aria2.
+func (a *Aria2) GetGlobalOptions() Options {
+	return a.toOptions(C.GoString(C.getGlobalOptions()))
 }
 
 // Pause pauses an active download for given gid. The status of the download
@@ -155,8 +187,12 @@ func (a *Aria2) GetDownloadInfo(gid string) DownloadInfo {
 	}
 }
 
-// convertOptions converts `Options` to string with ';' separator.
-func (a *Aria2) convertOptions(options Options) string {
+// fromOptions converts `Options` to string with ';' separator.
+func (a *Aria2) fromOptions(options Options) string {
+	if options == nil {
+		return ""
+	}
+
 	var cOptions string
 	for k, v := range options {
 		cOptions += k + ";"
@@ -164,6 +200,18 @@ func (a *Aria2) convertOptions(options Options) string {
 	}
 
 	return strings.TrimSuffix(cOptions, ";")
+}
+
+// fromOptions converts options string with ';' separator to `Options`.
+func (a *Aria2) toOptions(cOptions string) Options {
+	coptions := strings.Split(strings.TrimSuffix(cOptions, ";"), ";")
+	var options = make(Options)
+	var index int
+	for index = 0; index < len(coptions); index += 2 {
+		options[coptions[index]] = coptions[index+1]
+	}
+
+	return options
 }
 
 // hexToGid convert hex to uint64 type gid.

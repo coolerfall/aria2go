@@ -3,13 +3,16 @@
 package main
 
 import (
-	"anbillon.com/aria2go"
 	"log"
 	"time"
+
+	"anbillon.com/aria2go"
 )
 
 func main() {
-	a := aria2go.NewAria2()
+	a := aria2go.NewAria2WithOptions(aria2go.Options{
+		"dir": "test/",
+	})
 	go func() {
 		a.Start()
 	}()
@@ -30,6 +33,10 @@ func main() {
 	if err != nil {
 		log.Printf("error: %v", err)
 		return
+	}
+
+	for k, v := range a.GetOptions(gid) {
+		log.Printf("%v: %v", k, v)
 	}
 
 	for {
