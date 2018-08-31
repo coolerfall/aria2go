@@ -33,6 +33,40 @@ const char *getFileName(std::string dir, std::string path) {
   return toCStr(name);
 }
 
+const char *toAria2goOptions(aria2::KeyVals options) {
+  std::vector<std::pair<std::string, std::string>>::iterator it;
+
+  std::string cOptions;
+  for (it = options.begin(); it != options.end(); it++) {
+    std::pair<std::string, std::string> p = *it;
+    cOptions += p.first + ";" + p.second + ";";
+  }
+
+  return toCStr(cOptions);
+}
+
+aria2::KeyVals toAria2Options(const char *options) {
+  aria2::KeyVals aria2Options;
+
+  if (options == nullptr) {
+    return aria2Options;
+  }
+
+  std::vector<std::string> o = splitBySemicolon(std::string(options));
+  /* key and val should be pair */
+  if (o.size() % 2 != 0) {
+    return aria2Options;
+  }
+
+  for (int i = 0; i < o.size(); i += 2) {
+    std::string key = o[i];
+    std::string val = o[i + 1];
+    aria2Options.push_back(std::make_pair(key, val));
+  }
+
+  return aria2Options;
+}
+
 /**
  * Global aria2 session.
  */
@@ -40,27 +74,27 @@ aria2::Session *session;
 /**
  * Global aria2go go pointer.
  */
-uint64_t ariagoPointer;
+uint64_t aria2goPointer;
 
 /**
  * Download event callback for aria2.
  */
 int downloadEventCallback(aria2::Session *session, aria2::DownloadEvent event,
                           const aria2::A2Gid gid, void *userData) {
-  notifyEvent(ariagoPointer, gid, event);
+  notifyEvent(aria2goPointer, gid, event);
   return 0;
 }
 
 /**
  * Initial aria2 library.
  */
-int init(uint64_t pointer) {
-  ariagoPointer = pointer;
+int init(uint64_t pointer, const char *options) {
+  aria2goPointer = pointer;
   int ret = aria2::libraryInit();
   aria2::SessionConfig config;
   config.keepRunning = true;
   config.downloadEventCallback = downloadEventCallback;
-  session = aria2::sessionNew(aria2::KeyVals(), config);
+  session = aria2::sessionNew(toAria2Options(options), config);
   return ret;
 }
 
@@ -154,18 +188,10 @@ struct TorrentInfo *parseTorrent(char *fp) {
 /**
  * Add bit torrent file. See `addTorrent` in aria2.
  */
-uint64_t addTorrent(char *fp, const char *coptions) {
-  aria2::KeyVals options;
+uint64_t addTorrent(char *fp, const char *options) {
   aria2::A2Gid gid;
 
-  std::vector<std::string> o = splitBySemicolon(std::string(coptions));
-  for (int i = 0; i < o.size(); i += 2) {
-    std::string key = o[i];
-    std::string val = o[i + 1];
-    options.push_back(std::make_pair(key, val));
-  }
-
-  int ret = aria2::addTorrent(session, &gid, fp, options);
+  int ret = aria2::addTorrent(session, &gid, fp, toAria2Options(options));
   if (ret < 0) {
     return 0;
   }
@@ -177,24 +203,34 @@ uint64_t addTorrent(char *fp, const char *coptions) {
  * Change aria2 options. See `changeOption` in aria2.
  */
 bool changeOptions(uint64_t gid, const char *options) {
-  if (options == nullptr) {
-    return true;
+  return aria2::changeOption(session, gid, toAria2Options(options)) == 0;
+}
+
+/**
+ * Get options for given gid. see `getOptions` in aria2.
+ */
+const char *getOptions(uint64_t gid) {
+  aria2::DownloadHandle *dh = aria2::getDownloadHandle(session, gid);
+  if (!dh) {
+    return nullptr;
   }
 
-  std::vector<std::string> o = splitBySemicolon(std::string(options));
-  /* key and val should be pair */
-  if (o.size() % 2 != 0) {
-    return false;
-  }
+  return toAria2goOptions(dh->getOptions());
+}
 
-  aria2::KeyVals aria2Options;
-  for (int i = 0; i < o.size(); i += 2) {
-    std::string key = o[i];
-    std::string val = o[i + 1];
-    aria2Options.push_back(std::make_pair(key, val));
-  }
+/**
+ * Change global options. See `changeGlobalOption` in aria2.
+ */
+bool changeGlobalOptions(const char *options) {
+  return aria2::changeGlobalOption(session, toAria2Options(options));
+}
 
-  return aria2::changeOption(session, gid, aria2Options) == 0;
+/**
+ * Get global options. see `getGlobalOptions` in aria2.
+ */
+const char *getGlobalOptions() {
+  aria2::KeyVals options = aria2::getGlobalOptions(session);
+  return toAria2goOptions(options);
 }
 
 /**
