@@ -1,6 +1,6 @@
 #include "aria2_c.h"
 #include "_cgo_export.h"
-#include "aria2.h"
+#include <aria2/aria2.h>
 #include <iostream>
 #include <sstream>
 #include <string.h>
@@ -65,6 +65,25 @@ aria2::KeyVals toAria2Options(const char *options) {
   }
 
   return aria2Options;
+}
+
+struct FileInfo *parseFileData(aria2::DownloadHandle *dh) {
+  std::string dir = dh->getDir();
+  std::vector<aria2::FileData> files = dh->getFiles();
+  int numFiles = dh->getNumFiles();
+  struct FileInfo *allFiles = new FileInfo[numFiles];
+  for (int i = 0; i < numFiles; i++) {
+    aria2::FileData file = files[i];
+    struct FileInfo *fi = new FileInfo();
+    fi->index = file.index;
+    fi->name = getFileName(dir, file.path);
+    fi->length = file.length;
+    fi->completedLength = file.completedLength;
+    fi->selected = file.selected;
+
+    allFiles[i] = *fi;
+  }
+  return allFiles;
 }
 
 /**
@@ -139,8 +158,7 @@ struct TorrentInfo *parseTorrent(char *fp) {
 
   struct TorrentInfo *ti = new TorrentInfo();
   int numFiles = files.size();
-  std::string dir = dh->getDir();
-  ti->numFiles = numFiles;
+  ti->numFiles = dh->getNumFiles();
   ti->infoHash = toCStr(dh->getInfoHash());
 
   /* retrieve all BitTorrent meta information */
@@ -163,20 +181,8 @@ struct TorrentInfo *parseTorrent(char *fp) {
   }
   mi->announceList = toCStr(cAnnounceList);
   ti->metaInfo = mi;
-
   /* retrieve all files information */
-  struct FileInfo *allFiles = new FileInfo[numFiles];
-  for (int i = 0; i < files.size(); i++) {
-    aria2::FileData file = files[i];
-    struct FileInfo *fi = new FileInfo();
-    fi->index = file.index;
-    fi->name = getFileName(dir, file.path);
-    fi->length = file.length;
-    fi->selected = file.selected;
-
-    allFiles[i] = *fi;
-  }
-  ti->files = allFiles;
+  ti->files = parseFileData(dh);
 
   /* remove from download queue, just retrieve information */
   aria2::deleteDownloadHandle(dh);
@@ -280,6 +286,11 @@ struct DownloadInfo *getDownloadInfo(uint64_t gid) {
   di->uploadLength = dh->getUploadLength();
   di->downloadSpeed = dh->getDownloadSpeed();
   di->uploadSpeed = dh->getUploadSpeed();
+  di->pieceLength = dh->getPieceLength();
+  di->numPieces = dh->getNumPieces();
+  di->connections = dh->getConnections();
+  di->numFiles = dh->getNumFiles();
+  di->files = parseFileData(dh);
 
   return di;
 }

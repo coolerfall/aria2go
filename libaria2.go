@@ -3,8 +3,9 @@
 package aria2go
 
 /*
- #cgo CXXFLAGS: -std=c++11
- #cgo LDFLAGS: -L ./aria2-lib/lib -laria2 -lssh2 -lcrypto -lssl -lcares -lsqlite3 -lz -lexpat
+ #cgo CXXFLAGS: -std=c++11 -I./aria2-lib/include
+ #cgo LDFLAGS: -L./aria2-lib/lib
+ #cgo LDFLAGS: -laria2 -lssh2 -lcrypto -lssl -lcares -lsqlite3 -lz -lexpat
  #include "aria2_c.h"
 */
 import "C"
@@ -84,25 +85,10 @@ func (a *Aria2) ParseTorrent(filepath string) (*BitTorrentInfo, error) {
 		}
 	}
 
-	// retrieve all files
-	length := ret.numFiles
-	cfiles := (*[1 << 30]C.struct_FileInfo)(unsafe.Pointer(ret.files))[:length:length]
-	var files []File
-	if cfiles != nil {
-		for _, f := range cfiles {
-			files = append(files, File{
-				Index:    int(f.index),
-				Length:   int64(f.length),
-				Name:     C.GoString(f.name),
-				Selected: bool(f.selected),
-			})
-		}
-	}
-
 	return &BitTorrentInfo{
 		InfoHash: infoHash,
 		MetaInfo: metaInfo,
-		Files:    files,
+		Files:    a.parseFiles(ret.files, ret.numFiles),
 	}, nil
 }
 
@@ -184,6 +170,7 @@ func (a *Aria2) GetDownloadInfo(gid string) DownloadInfo {
 		BytesUpload:    int64(ret.uploadLength),
 		DownloadSpeed:  int(ret.downloadSpeed),
 		UploadSpeed:    int(ret.uploadSpeed),
+		Files:          a.parseFiles(ret.files, ret.numFiles),
 	}
 }
 
@@ -221,6 +208,26 @@ func (a *Aria2) hexToGid(hex string) C.ulong {
 		return 0
 	}
 	return C.ulong(id)
+}
+
+// parseFiles parses all files information from aria2.
+func (a *Aria2) parseFiles(filesPointer *C.struct_FileInfo, length C.int) (files []File) {
+	cfiles := (*[1 << 30]C.struct_FileInfo)(unsafe.Pointer(filesPointer))[:length:length]
+	if cfiles == nil {
+		return
+	}
+
+	for _, f := range cfiles {
+		files = append(files, File{
+			Index:           int(f.index),
+			Length:          int64(f.length),
+			CompletedLength: int64(f.completedLength),
+			Name:            C.GoString(f.name),
+			Selected:        bool(f.selected),
+		})
+	}
+
+	return
 }
 
 //export notifyEvent
