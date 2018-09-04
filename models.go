@@ -11,6 +11,7 @@ type DownloadInfo struct {
 	DownloadSpeed  int
 	UploadSpeed    int
 	BitField       string
+	Files          []File
 }
 
 // Type definition for BitTorrent meta information.
@@ -24,10 +25,11 @@ type MetaInfo struct {
 
 // Type definition for file in torrent.
 type File struct {
-	Index    int
-	Name     string
-	Length   int64
-	Selected bool
+	Index           int
+	Name            string
+	Length          int64
+	CompletedLength int64
+	Selected        bool
 }
 
 // Type definition for BitTorrent detail information.

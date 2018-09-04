@@ -42,6 +42,10 @@ func main() {
 	for {
 		time.Sleep(time.Second)
 		di := a.GetDownloadInfo(gid)
+		for _, f := range di.Files {
+			log.Printf("index: %v, name: %v, selected: %v, completed: %v, len: %v",
+				f.Index, f.Name, f.Selected, f.CompletedLength, f.Length)
+		}
 		log.Printf("download speed: %vKib/s", di.DownloadSpeed/1024.0)
 		log.Printf("bytes completed: %vM", float64(di.BytesCompleted)/1024.0/1024.0)
 	}

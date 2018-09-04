@@ -25,6 +25,7 @@ struct FileInfo {
   int index;
   const char *name;
   int64_t length;
+  int64_t completedLength;
   bool selected;
 };
 
@@ -48,6 +49,11 @@ struct DownloadInfo {
   int64_t uploadLength;
   int downloadSpeed;
   int uploadSpeed;
+  int pieceLength;
+  int numPieces;
+  int connections;
+  int numFiles;
+  struct FileInfo *files;
 };
 
 int init(uint64_t aria2goPointer, const char *options);
