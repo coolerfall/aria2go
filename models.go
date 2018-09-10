@@ -10,6 +10,8 @@ type DownloadInfo struct {
 	BytesUpload    int64
 	DownloadSpeed  int
 	UploadSpeed    int
+	NumPieces      int
+	Connections    int
 	BitField       string
 	Files          []File
 }

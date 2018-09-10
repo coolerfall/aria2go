@@ -57,7 +57,7 @@ struct DownloadInfo {
 };
 
 int init(uint64_t aria2goPointer, const char *options);
-uint64_t addUri(char *uri);
+uint64_t addUri(char *uri, const char *options);
 struct TorrentInfo *parseTorrent(char *fp);
 uint64_t addTorrent(char *fp, const char *options);
 bool changeOptions(uint64_t gid, const char *options);
