@@ -122,11 +122,10 @@ int init(uint64_t pointer, const char *options) {
  *
  * @param uri uri to add
  */
-uint64_t addUri(char *uri) {
+uint64_t addUri(char *uri, const char *options) {
   std::vector<std::string> uris = {uri};
-  aria2::KeyVals options;
   aria2::A2Gid gid;
-  int ret = aria2::addUri(session, &gid, uris, options);
+  int ret = aria2::addUri(session, &gid, uris, toAria2Options(options));
   if (ret < 0) {
     return 0;
   }
@@ -291,6 +290,9 @@ struct DownloadInfo *getDownloadInfo(uint64_t gid) {
   di->connections = dh->getConnections();
   di->numFiles = dh->getNumFiles();
   di->files = parseFileData(dh);
+
+  /* delete download handle */
+  aria2::deleteDownloadHandle(dh);
 
   return di;
 }

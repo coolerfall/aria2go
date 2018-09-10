@@ -6,6 +6,7 @@ package aria2go
  #cgo CXXFLAGS: -std=c++11 -I./aria2-lib/include
  #cgo LDFLAGS: -L./aria2-lib/lib
  #cgo LDFLAGS: -laria2 -lssh2 -lcrypto -lssl -lcares -lsqlite3 -lz -lexpat
+ #include <stdlib.h>
  #include "aria2_c.h"
 */
 import "C"
@@ -53,8 +54,13 @@ func (a *Aria2) SetNotifier(notifier Notifier) {
 // AddUri adds a new download. The uris is an array of HTTP/FTP/SFTP/MetaInfo
 // URIs (strings) pointing to the same resource. When adding MetaInfo Magnet
 // URIs, uris must have only one element and it should be MetaInfo Magnet URI.
-func (a *Aria2) AddUri(uri string) (gid string, err error) {
-	ret := C.addUri(C.CString(uri))
+func (a *Aria2) AddUri(uri string, options Options) (gid string, err error) {
+	cUri := C.CString(uri)
+	cOptions := C.CString(a.fromOptions(options))
+	defer C.free(unsafe.Pointer(cUri))
+	defer C.free(unsafe.Pointer(cOptions))
+
+	ret := C.addUri(cUri, cOptions)
 	if ret == 0 {
 		return "", errors.New("add uri failed")
 	}
@@ -64,7 +70,10 @@ func (a *Aria2) AddUri(uri string) (gid string, err error) {
 // ParseTorrent parses torrent file into torrent information. Aria2 will not
 // download. This will return info hash, all files in torrent.
 func (a *Aria2) ParseTorrent(filepath string) (*BitTorrentInfo, error) {
-	ret := C.parseTorrent(C.CString(filepath))
+	cFilepath := C.CString(filepath)
+	defer C.free(unsafe.Pointer(cFilepath))
+
+	ret := C.parseTorrent(cFilepath)
 	if ret == nil {
 		return nil, errors.New("no data in torrent file")
 	}
@@ -96,7 +105,12 @@ func (a *Aria2) ParseTorrent(filepath string) (*BitTorrentInfo, error) {
 // This will return gid and files in torrent file if add successfully.
 // User can choose specified files to download, change directory and so on.
 func (a *Aria2) AddTorrent(filepath string, options Options) (gid string, err error) {
-	ret := C.addTorrent(C.CString(filepath), C.CString(a.fromOptions(options)))
+	cFilepath := C.CString(filepath)
+	cOptions := C.CString(a.fromOptions(options))
+	defer C.free(unsafe.Pointer(cFilepath))
+	defer C.free(unsafe.Pointer(cOptions))
+
+	ret := C.addTorrent(cFilepath, cOptions)
 	if ret == 0 {
 		return "", errors.New("add torrent failed")
 	}
@@ -106,7 +120,10 @@ func (a *Aria2) AddTorrent(filepath string, options Options) (gid string, err er
 // ChangeOptions can change the options for aria2. See available options in
 // https://aria2.github.io/manual/en/html/aria2c.html#input-file.
 func (a *Aria2) ChangeOptions(gid string, options Options) error {
-	if !C.changeOptions(a.hexToGid(gid), C.CString(a.fromOptions(options))) {
+	cOptions := C.CString(a.fromOptions(options))
+	defer C.free(unsafe.Pointer(cOptions))
+
+	if !C.changeOptions(a.hexToGid(gid), cOptions) {
 		return errors.New("change options error")
 	}
 
@@ -127,7 +144,10 @@ func (a *Aria2) GetOptions(gid string) Options {
 // https://aria2.github.io/manual/en/html/aria2c.html#input-file except for
 // `checksum`, `index-out`, `out`, `pause` and `select-file`.
 func (a *Aria2) ChangeGlobalOptions(options Options) error {
-	if !C.changeGlobalOptions(C.CString(a.fromOptions(options))) {
+	cOptions := C.CString(a.fromOptions(options))
+	defer C.free(unsafe.Pointer(cOptions))
+
+	if !C.changeGlobalOptions(cOptions) {
 		return errors.New("change global options error")
 	}
 
@@ -170,6 +190,8 @@ func (a *Aria2) GetDownloadInfo(gid string) DownloadInfo {
 		BytesUpload:    int64(ret.uploadLength),
 		DownloadSpeed:  int(ret.downloadSpeed),
 		UploadSpeed:    int(ret.uploadSpeed),
+		NumPieces:      int(ret.numPieces),
+		Connections:    int(ret.connections),
 		Files:          a.parseFiles(ret.files, ret.numFiles),
 	}
 }
@@ -226,6 +248,9 @@ func (a *Aria2) parseFiles(filesPointer *C.struct_FileInfo, length C.int) (files
 			Selected:        bool(f.selected),
 		})
 	}
+
+	// free c pointer resource
+	C.free(unsafe.Pointer(filesPointer))
 
 	return
 }
