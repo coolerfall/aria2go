@@ -112,10 +112,18 @@ int init(uint64_t pointer, const char *options) {
   int ret = aria2::libraryInit();
   aria2::SessionConfig config;
   config.keepRunning = true;
+  /* do not use signal handler, cause c will block go */
+  config.useSignalHandler = false;
   config.downloadEventCallback = downloadEventCallback;
   session = aria2::sessionNew(toAria2Options(options), config);
   return ret;
 }
+
+/**
+ * Shutdown aria2, this must be invoked when process exit(signal handler is not
+ * used), so aria2 will be able to save session config.
+ */
+int shutdown() { return aria2::sessionFinal(session); }
 
 /**
  * Adds new HTTP(S)/FTP/BitTorrent Magnet URI. See `addUri` in aria2.
