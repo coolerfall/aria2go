@@ -41,7 +41,7 @@ func NewAria2WithOptions(options Options) *Aria2 {
 // Shutdown aria2, this must be invoked when process exit(signal handler is not
 // used), so aria2 will be able to save session config.
 func (a *Aria2) Shutdown() {
-	C.shutdown()
+	C.deinit()
 }
 
 // Start the aria2 to keep running. Note this will block current thread.

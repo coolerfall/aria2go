@@ -120,10 +120,14 @@ int init(uint64_t pointer, const char *options) {
 }
 
 /**
- * Shutdown aria2, this must be invoked when process exit(signal handler is not
- * used), so aria2 will be able to save session config.
+ * Deinit aria2 library, this must be invoked when process exit(signal handler
+ * is not used), so aria2 will be able to save session config.
  */
-int shutdown() { return aria2::sessionFinal(session); }
+int deinit() {
+  int ret = aria2::sessionFinal(session);
+  aria2::libraryDeinit();
+  return ret;
+}
 
 /**
  * Adds new HTTP(S)/FTP/BitTorrent Magnet URI. See `addUri` in aria2.
