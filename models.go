@@ -13,6 +13,8 @@ type DownloadInfo struct {
 	NumPieces      int
 	Connections    int
 	BitField       string
+	InfoHash       string
+	MetaInfo       MetaInfo
 	Files          []File
 }
 
@@ -32,15 +34,6 @@ type File struct {
 	Length          int64
 	CompletedLength int64
 	Selected        bool
-}
-
-// Type definition for BitTorrent detail information.
-type BitTorrentInfo struct {
-	InfoHash string
-	MetaInfo MetaInfo
-	Files    []File
-	Seeders  int
-	IsSeeder bool
 }
 
 type Options map[string]string

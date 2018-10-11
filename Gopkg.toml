@@ -2,6 +2,7 @@
 #
 
 required = [
+    "gopkg.in/cheggaaa/pb.v1",
     "github.com/stretchr/testify",
 ]
 

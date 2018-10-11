@@ -1,16 +1,12 @@
 #!/bin/bash
 
-# In this configuration, the following dependent libraries are compiled:
-#
-# * zlib
-# * c-ares
-# * openSSL
-# * libssh2
+# prepare library for arm.
 
 # Compiler and path
 PREFIX=$PWD/aria2-lib
-C_COMPILER="gcc"
-CXX_COMPILER="g++"
+HOST="arm-linux-gnueabihf"
+C_COMPILER="${HOST}-gcc"
+CXX_COMPILER="${HOST}-g++"
 
 # Check tool for download
 aria2c --help > /dev/null
@@ -44,14 +40,16 @@ BUILD_DIRECTORY=/tmp/
 ## Build
 cd ${BUILD_DIRECTORY}
 
+
 # zlib build
 if ! [ -e zlib-${ZLIB_V}.tar.gz ]; then
     ${DOWNLOADER} ${ZLIB}
 fi
 tar zxvf zlib-${ZLIB_V}.tar.gz
 cd zlib-${ZLIB_V}
-PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig/ \
-    LD_LIBRARY_PATH=${PREFIX}/lib/ CC="$C_COMPILER" CXX="$CXX_COMPILER" \
+PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig/ LD_LIBRARY_PATH=${PREFIX}/lib/ \
+    CC="$C_COMPILER" CXX="$CXX_COMPILER" CFLAGS="-fPIC" \
+    STRIP=${HOST}-strip RANLIB=${HOST}-ranlib AR=${HOST}-ar LD=${HOST}-ld \
     ./configure --prefix=${PREFIX} --static
 make -j`nproc`
 make install
@@ -63,9 +61,9 @@ if ! [ -e c-ares-${C_ARES_V}.tar.gz ]; then
 fi
 tar zxvf c-ares-${C_ARES_V}.tar.gz
 cd c-ares-${C_ARES_V}
-PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig/ \
-    LD_LIBRARY_PATH=${PREFIX}/lib/ CC="$C_COMPILER" CXX="$CXX_COMPILER" \
-    ./configure --prefix=${PREFIX} --enable-static --disable-shared
+PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig/ LD_LIBRARY_PATH=${PREFIX}/lib/ \
+    CC="$C_COMPILER" CXX="$CXX_COMPILER" CFLAGS="-fPIC" \
+    ./configure --host=${HOST} --prefix=${PREFIX} --enable-static --disable-shared
 make -j`nproc`
 make install
 cd ..
@@ -76,10 +74,10 @@ if ! [ -e openssl-${OPENSSL_V}.tar.gz ]; then
 fi
 tar zxvf openssl-${OPENSSL_V}.tar.gz
 cd openssl-${OPENSSL_V}
-PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig/ \
-    LD_LIBRARY_PATH=${PREFIX}/lib/ CC="$C_COMPILER" CXX="$CXX_COMPILER" \
-    ./Configure --prefix=${PREFIX} linux-x86_64 shared
-make -j4
+PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig/ LD_LIBRARY_PATH=${PREFIX}/lib/ \
+    CC="$C_COMPILER" CXX="$CXX_COMPILER" CFLAGS="-fPIC" \
+    ./Configure --prefix=${PREFIX} linux-armv4 shared
+make -j`nproc`
 make install
 cd ..
 
@@ -91,14 +89,16 @@ tar zxvf libssh2-${SSH2_V}.tar.gz
 cd libssh2-${SSH2_V}
 PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig/ \
     LD_LIBRARY_PATH=${PREFIX}/lib/ CC="$C_COMPILER" CXX="$CXX_COMPILER" \
-    ./configure --without-libgcrypt-prefix --with-openssl \
+    AR=${HOST}-ar RANLIB=${HOST}-ranlib CFLAGS="-fPIC" \
+    ./configure --host=${HOST} --without-libgcrypt-prefix \
+    --with-openssl --with-libssl-prefix=${PREFIX} \
     --without-wincng --prefix=${PREFIX} \
     --enable-static --disable-shared
 make -j`nproc`
 make install
 cd ..
 
-# build aria2 static library
+# Build aria2 static library.
 if ! [ -e aria2-${ARIA2_V}.tar.bz2 ]; then
     ${DOWNLOADER} ${ARIA2}
 fi
@@ -108,7 +108,10 @@ PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig/ \
     LD_LIBRARY_PATH=${PREFIX}/lib/ \
     CC="$C_COMPILER" \
     CXX="$CXX_COMPILER" \
+    CXXFLAGS="-fPIC" \
+    CFLAGS="-fPIC" \
     ./configure \
+    --host=${HOST} \
     --prefix=${PREFIX} \
     --without-sqlite3 \
     --without-libxml2 \
@@ -134,7 +137,7 @@ rm -rf libssh2-${SSH2_V}
 rm -rf aria2-${ARIA2_V}
 rm -rf ${PREFIX}/bin
 
-# generate files for c
+## generate files for c
 cd ${PREFIX}/../
 go tool cgo libaria2.go
 
