@@ -86,6 +86,29 @@ struct FileInfo *parseFileData(aria2::DownloadHandle *dh) {
   return allFiles;
 }
 
+/* retrieve all BitTorrent meta information */
+struct MetaInfo *parseMetaInfo(aria2::BtMetaInfoData btMetaInfo) {
+  struct MetaInfo *mi = new MetaInfo();
+  mi->name = toCStr(btMetaInfo.name);
+  mi->comment = toCStr(btMetaInfo.comment);
+  mi->creationUnix = btMetaInfo.creationDate;
+  std::vector<std::vector<std::string>> announceList = btMetaInfo.announceList;
+  std::vector<std::vector<std::string>>::iterator it;
+  std::string cAnnounceList;
+  for (it = announceList.begin(); it != announceList.end(); it++) {
+    std::vector<std::string>::iterator cit;
+    std::vector<std::string> childList = *it;
+    for (cit = childList.begin(); cit != childList.end(); cit++) {
+      cAnnounceList += *cit;
+      if (it != announceList.end() - 1 || cit != childList.end() - 1) {
+        cAnnounceList += ";";
+      }
+    }
+  }
+  mi->announceList = toCStr(cAnnounceList);
+  return mi;
+}
+
 /**
  * Global aria2 session.
  */
@@ -120,6 +143,11 @@ int init(uint64_t pointer, const char *options) {
 }
 
 /**
+ * Shutdown schedules. This will cause run finished.
+ */
+int shutdownSchedules(bool force) { return aria2::shutdown(session, force); }
+
+/**
  * Deinit aria2 library, this must be invoked when process exit(signal handler
  * is not used), so aria2 will be able to save session config.
  */
@@ -143,63 +171,6 @@ uint64_t addUri(char *uri, const char *options) {
   }
 
   return gid;
-}
-
-/**
- * Parse torrent file for given file path. This will just retrieve related
- * information from torrent file, and aria2 will not download it.
- */
-struct TorrentInfo *parseTorrent(char *fp) {
-  aria2::KeyVals options;
-  options.push_back(std::make_pair("dry-run", "true"));
-
-  aria2::A2Gid gid;
-  int ret = aria2::addTorrent(session, &gid, fp, options);
-  if (ret < 0) {
-    return nullptr;
-  }
-
-  aria2::DownloadHandle *dh = aria2::getDownloadHandle(session, gid);
-  if (!dh) {
-    return nullptr;
-  }
-
-  std::vector<aria2::FileData> files = dh->getFiles();
-  aria2::BtMetaInfoData btMetaInfo = dh->getBtMetaInfo();
-
-  struct TorrentInfo *ti = new TorrentInfo();
-  int numFiles = files.size();
-  ti->numFiles = dh->getNumFiles();
-  ti->infoHash = toCStr(dh->getInfoHash());
-
-  /* retrieve all BitTorrent meta information */
-  struct MetaInfo *mi = new MetaInfo();
-  mi->name = toCStr(btMetaInfo.name);
-  mi->comment = toCStr(btMetaInfo.comment);
-  mi->creationUnix = btMetaInfo.creationDate;
-  std::vector<std::vector<std::string>> announceList = btMetaInfo.announceList;
-  std::vector<std::vector<std::string>>::iterator it;
-  std::string cAnnounceList;
-  for (it = announceList.begin(); it != announceList.end(); it++) {
-    std::vector<std::string>::iterator cit;
-    std::vector<std::string> childList = *it;
-    for (cit = childList.begin(); cit != childList.end(); cit++) {
-      cAnnounceList += *cit;
-      if (it != announceList.end() - 1 || cit != childList.end() - 1) {
-        cAnnounceList += ";";
-      }
-    }
-  }
-  mi->announceList = toCStr(cAnnounceList);
-  ti->metaInfo = mi;
-  /* retrieve all files information */
-  ti->files = parseFileData(dh);
-
-  /* remove from download queue, just retrieve information */
-  aria2::deleteDownloadHandle(dh);
-  aria2::removeDownload(session, gid);
-
-  return ti;
 }
 
 /**
@@ -251,16 +222,9 @@ const char *getGlobalOptions() {
 }
 
 /**
- * Start to download. This will block current thread.
+ * Performs event polling and actions for them.
  */
-void start() {
-  for (;;) {
-    int ret = aria2::run(session, aria2::RUN_DEFAULT);
-    if (ret != 1) {
-      break;
-    }
-  }
-}
+int run() { return aria2::run(session, aria2::RUN_DEFAULT); }
 
 /**
  * Pause an active download with given gid. This will mark the download to
@@ -301,6 +265,8 @@ struct DownloadInfo *getDownloadInfo(uint64_t gid) {
   di->numPieces = dh->getNumPieces();
   di->connections = dh->getConnections();
   di->numFiles = dh->getNumFiles();
+  di->infoHash = toCStr(dh->getInfoHash());
+  di->metaInfo = parseMetaInfo(dh->getBtMetaInfo());
   di->files = parseFileData(dh);
 
   /* delete download handle */

@@ -5,7 +5,7 @@ package aria2go
 /*
  #cgo CXXFLAGS: -std=c++11 -I./aria2-lib/include
  #cgo LDFLAGS: -L./aria2-lib/lib
- #cgo LDFLAGS: -laria2 -lssh2 -lcrypto -lssl -lcares -lsqlite3 -lz -lexpat
+ #cgo LDFLAGS: -laria2 -lssh2 -lcrypto -lssl -lcares -lz
  #include <stdlib.h>
  #include "aria2_c.h"
 */
@@ -13,6 +13,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -20,33 +21,52 @@ import (
 
 // Type definition for lib aria2, it holds a notifier.
 type Aria2 struct {
-	notifier Notifier
+	notifier             Notifier
+	shutdownNotification chan bool
+	shouldShutdown       bool
+}
+
+type Config struct {
+	Options  Options
+	Notifier Notifier
 }
 
 // NewAria2 creates a new instance of aria2.
-func NewAria2() *Aria2 {
-	return NewAria2WithOptions(nil)
-}
-
-// NewAria2WithOptions creates a new instance of aira2 with global options.
-// See `ChangeGlobalOptions` also.
-func NewAria2WithOptions(options Options) *Aria2 {
+func NewAria2(config Config) *Aria2 {
 	a := &Aria2{
-		notifier: newDefaultNotifier(),
+		notifier:             newDefaultNotifier(),
+		shutdownNotification: make(chan bool),
 	}
-	C.init(C.ulong(uintptr(unsafe.Pointer(a))), C.CString(a.fromOptions(options)))
+	a.SetNotifier(config.Notifier)
+
+	C.init(C.uint64_t(uintptr(unsafe.Pointer(a))),
+		C.CString(a.fromOptions(config.Options)))
 	return a
 }
 
 // Shutdown aria2, this must be invoked when process exit(signal handler is not
 // used), so aria2 will be able to save session config.
-func (a *Aria2) Shutdown() {
-	C.deinit()
+func (a *Aria2) Shutdown() int {
+	C.shutdownSchedules(true)
+	a.shouldShutdown = true
+
+	// do nothing, just make thread waiting
+	select {
+	case <-a.shutdownNotification:
+		break
+	}
+
+	return int(C.deinit())
 }
 
-// Start the aria2 to keep running. Note this will block current thread.
-func (a *Aria2) Start() {
-	C.start()
+// Run starts event pooling. Note this will block current thread.
+func (a *Aria2) Run() {
+	for {
+		if C.run() != 1 && a.shouldShutdown {
+			break
+		}
+	}
+	a.shutdownNotification <- true
 }
 
 // SetNotifier sets notifier to receive download notification from aria2.
@@ -57,9 +77,9 @@ func (a *Aria2) SetNotifier(notifier Notifier) {
 	a.notifier = notifier
 }
 
-// AddUri adds a new download. The uris is an array of HTTP/FTP/SFTP/MetaInfo
-// URIs (strings) pointing to the same resource. When adding MetaInfo Magnet
-// URIs, uris must have only one element and it should be MetaInfo Magnet URI.
+// AddUri adds a new download. The uris is an array of HTTP/FTP/SFTP/BitTorrent
+// URIs (strings) pointing to the same resource. When adding BitTorrent Magnet
+// URIs, uris must have only one element and it should be BitTorrent Magnet URI.
 func (a *Aria2) AddUri(uri string, options Options) (gid string, err error) {
 	cUri := C.CString(uri)
 	cOptions := C.CString(a.fromOptions(options))
@@ -68,43 +88,9 @@ func (a *Aria2) AddUri(uri string, options Options) (gid string, err error) {
 
 	ret := C.addUri(cUri, cOptions)
 	if ret == 0 {
-		return "", errors.New("add uri failed")
+		return "", errors.New("libaria2: add uri failed")
 	}
 	return fmt.Sprintf("%x", uint64(ret)), nil
-}
-
-// ParseTorrent parses torrent file into torrent information. Aria2 will not
-// download. This will return info hash, all files in torrent.
-func (a *Aria2) ParseTorrent(filepath string) (*BitTorrentInfo, error) {
-	cFilepath := C.CString(filepath)
-	defer C.free(unsafe.Pointer(cFilepath))
-
-	ret := C.parseTorrent(cFilepath)
-	if ret == nil {
-		return nil, errors.New("no data in torrent file")
-	}
-
-	// convert info hash to hex string
-	infoHash := fmt.Sprintf("%x", []byte(C.GoString(ret.infoHash)))
-
-	// retrieve BitTorrent meta information
-	var metaInfo = MetaInfo{}
-	mi := ret.metaInfo
-	if mi != nil {
-		announceList := strings.Split(C.GoString(mi.announceList), ";")
-		metaInfo = MetaInfo{
-			Name:         C.GoString(mi.name),
-			Comment:      C.GoString(mi.comment),
-			CreationUnix: int64(mi.creationUnix),
-			AnnounceList: announceList,
-		}
-	}
-
-	return &BitTorrentInfo{
-		InfoHash: infoHash,
-		MetaInfo: metaInfo,
-		Files:    a.parseFiles(ret.files, ret.numFiles),
-	}, nil
 }
 
 // AddTorrent adds a MetaInfo download with given torrent file path.
@@ -118,7 +104,7 @@ func (a *Aria2) AddTorrent(filepath string, options Options) (gid string, err er
 
 	ret := C.addTorrent(cFilepath, cOptions)
 	if ret == 0 {
-		return "", errors.New("add torrent failed")
+		return "", errors.New("libaria2: add torrent failed")
 	}
 	return fmt.Sprintf("%x", uint64(ret)), nil
 }
@@ -130,7 +116,7 @@ func (a *Aria2) ChangeOptions(gid string, options Options) error {
 	defer C.free(unsafe.Pointer(cOptions))
 
 	if !C.changeOptions(a.hexToGid(gid), cOptions) {
-		return errors.New("change options error")
+		return errors.New("libaria2: change options error")
 	}
 
 	return nil
@@ -154,7 +140,7 @@ func (a *Aria2) ChangeGlobalOptions(options Options) error {
 	defer C.free(unsafe.Pointer(cOptions))
 
 	if !C.changeGlobalOptions(cOptions) {
-		return errors.New("change global options error")
+		return errors.New("libaria2: change global options error")
 	}
 
 	return nil
@@ -188,6 +174,23 @@ func (a *Aria2) GetDownloadInfo(gid string) DownloadInfo {
 	if ret == nil {
 		return DownloadInfo{}
 	}
+	defer C.free(unsafe.Pointer(ret))
+
+	// convert info hash to hex string
+	infoHash := fmt.Sprintf("%x", []byte(C.GoString(ret.infoHash)))
+
+	// retrieve BitTorrent meta information
+	var metaInfo = MetaInfo{}
+	mi := ret.metaInfo
+	if mi != nil {
+		announceList := strings.Split(C.GoString(mi.announceList), ";")
+		metaInfo = MetaInfo{
+			Name:         C.GoString(mi.name),
+			Comment:      C.GoString(mi.comment),
+			CreationUnix: int64(mi.creationUnix),
+			AnnounceList: announceList,
+		}
+	}
 
 	return DownloadInfo{
 		Status:         int(ret.status),
@@ -198,6 +201,8 @@ func (a *Aria2) GetDownloadInfo(gid string) DownloadInfo {
 		UploadSpeed:    int(ret.uploadSpeed),
 		NumPieces:      int(ret.numPieces),
 		Connections:    int(ret.connections),
+		InfoHash:       infoHash,
+		MetaInfo:       metaInfo,
 		Files:          a.parseFiles(ret.files, ret.numFiles),
 	}
 }
@@ -230,17 +235,17 @@ func (a *Aria2) toOptions(cOptions string) Options {
 }
 
 // hexToGid convert hex to uint64 type gid.
-func (a *Aria2) hexToGid(hex string) C.ulong {
+func (a *Aria2) hexToGid(hex string) C.uint64_t {
 	id, err := strconv.ParseUint(hex, 16, 64)
 	if err != nil {
 		return 0
 	}
-	return C.ulong(id)
+	return C.uint64_t(id)
 }
 
 // parseFiles parses all files information from aria2.
 func (a *Aria2) parseFiles(filesPointer *C.struct_FileInfo, length C.int) (files []File) {
-	cfiles := (*[1 << 30]C.struct_FileInfo)(unsafe.Pointer(filesPointer))[:length:length]
+	cfiles := (*[1 << 20]C.struct_FileInfo)(unsafe.Pointer(filesPointer))[:length:length]
 	if cfiles == nil {
 		return
 	}
@@ -286,4 +291,10 @@ func notifyEvent(ariagoPointer uint64, id uint64, event int) {
 	case onBTComplete:
 		a.notifier.OnComplete(gid)
 	}
+}
+
+//export goLog
+//noinspection GoUnusedFunction
+func goLog(msg *C.char) {
+	log.Println(C.GoString(msg))
 }

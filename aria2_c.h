@@ -9,16 +9,6 @@ extern "C" {
 #endif
 
 /**
- * Type definition for torrent information.
- */
-struct TorrentInfo {
-  int numFiles;
-  const char *infoHash;
-  struct MetaInfo *metaInfo;
-  struct FileInfo *files;
-};
-
-/**
  * Type definition for file information in torrent.
  */
 struct FileInfo {
@@ -53,19 +43,21 @@ struct DownloadInfo {
   int numPieces;
   int connections;
   int numFiles;
+  const char *infoHash;
+  struct MetaInfo *metaInfo;
   struct FileInfo *files;
 };
 
 int init(uint64_t aria2goPointer, const char *options);
+int shutdownSchedules(bool force);
 int deinit();
 uint64_t addUri(char *uri, const char *options);
-struct TorrentInfo *parseTorrent(char *fp);
 uint64_t addTorrent(char *fp, const char *options);
 bool changeOptions(uint64_t gid, const char *options);
 const char *getOptions(uint64_t gid);
 bool changeGlobalOptions(const char *options);
 const char *getGlobalOptions();
-void start();
+int run();
 bool pause(uint64_t gid);
 bool resume(uint64_t gid);
 bool removeDownload(uint64_t gid);
