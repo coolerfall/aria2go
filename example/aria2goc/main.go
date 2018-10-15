@@ -32,17 +32,16 @@ func main() {
 		},
 	})
 
-	var gid string
-	var err error
 	input := flag.Arg(0)
-	if strings.HasPrefix(input, "http") {
-		gid, err = a.AddUri(input, nil)
+	isMagnet := strings.HasPrefix(input, "magnet")
+	if strings.HasPrefix(input, "http") || isMagnet {
+		_, err := a.AddUri(input, nil)
 		if err != nil {
 			flag.Usage()
 			return
 		}
 	} else if strings.HasSuffix(input, "torrent") {
-		gid, err = a.AddTorrent(input, nil)
+		_, err := a.AddTorrent(input, nil)
 		if err != nil {
 			flag.Usage()
 			return
@@ -56,36 +55,47 @@ func main() {
 		a.Run()
 	}()
 
-	shutdownNotif := make(chan bool)
+	startNotif := make(chan string)
+	completeNotif := make(chan bool)
 	go func() {
 		quit := make(chan os.Signal, 1)
 		signal.Notify(quit, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGHUP)
 
 		select {
 		case <-quit:
-			shutdownNotif <- true
+			completeNotif <- true
 		}
 	}()
-	a.SetNotifier(newAria2goNotifier(shutdownNotif))
+	a.SetNotifier(newAria2goNotifier(startNotif, completeNotif))
 
-	bar := createProgressBar(a, gid)
-	if bar == nil {
-		log.Printf("fetch download information error")
-		shutdownNotif <- true
-		return
-	} else {
-		bar.Start()
-	}
-
+	var gid string
+	var bar *pb.ProgressBar
+	var count int
 	ticker := time.NewTicker(time.Millisecond * 500)
 
 	for {
 		select {
+		case id := <-startNotif:
+			{
+				gid = id
+				bar = createProgressBar(a, gid)
+				if bar == nil {
+					log.Printf("fetch download information error")
+					completeNotif <- true
+					return
+				} else {
+					bar.Start()
+				}
+			}
 		case <-ticker.C:
 			showProgress(a, gid, bar)
-		case <-shutdownNotif:
-			ticker.Stop()
+		case shutdown := <-completeNotif:
 			bar.Finish()
+			if !shutdown && isMagnet && count < 1 {
+				continue
+			}
+			count ++
+			ticker.Stop()
 			os.Exit(1)
 		}
 	}
@@ -123,20 +133,28 @@ func createProgressBar(a *aria2go.Aria2, gid string) (bar *pb.ProgressBar) {
 }
 
 func showProgress(a *aria2go.Aria2, gid string, pb *pb.ProgressBar) {
+	if pb == nil {
+		return
+	}
 	di := a.GetDownloadInfo(gid)
 	pb.Set64(di.BytesCompleted)
 }
 
 type Aria2gocNotifier struct {
-	shutdown chan bool
+	start    chan string
+	complete chan bool
 }
 
-func newAria2goNotifier(shutdown chan bool) aria2go.Notifier {
-	return Aria2gocNotifier{shutdown: shutdown}
+func newAria2goNotifier(start chan string, complete chan bool) aria2go.Notifier {
+	return Aria2gocNotifier{
+		start:    start,
+		complete: complete,
+	}
 }
 
 func (n Aria2gocNotifier) OnStart(gid string) {
 	log.Printf("on start %v", gid)
+	n.start <- gid
 }
 
 func (n Aria2gocNotifier) OnPause(gid string) {
@@ -149,7 +167,7 @@ func (n Aria2gocNotifier) OnStop(gid string) {
 
 func (n Aria2gocNotifier) OnComplete(gid string) {
 	log.Printf("on complete: %v", gid)
-	n.shutdown <- true
+	n.complete <- false
 }
 
 func (n Aria2gocNotifier) OnError(gid string) {

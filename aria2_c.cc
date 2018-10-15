@@ -153,6 +153,7 @@ int shutdownSchedules(bool force) { return aria2::shutdown(session, force); }
  */
 int deinit() {
   int ret = aria2::sessionFinal(session);
+  session = nullptr;
   aria2::libraryDeinit();
   return ret;
 }
@@ -249,6 +250,10 @@ bool removeDownload(uint64_t gid) {
  * Get download information for current download with given gid.
  */
 struct DownloadInfo *getDownloadInfo(uint64_t gid) {
+  if (session == nullptr) {
+    return nullptr;
+  }
+
   aria2::DownloadHandle *dh = aria2::getDownloadHandle(session, gid);
   if (!dh) {
     return nullptr;
