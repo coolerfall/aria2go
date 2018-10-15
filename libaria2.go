@@ -26,6 +26,7 @@ type Aria2 struct {
 	shouldShutdown       bool
 }
 
+// Type definition of configuration for aria2.
 type Config struct {
 	Options  Options
 	Notifier Notifier
