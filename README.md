@@ -7,7 +7,7 @@ Usage
 * If you are using `dep`, add the flowing:
 ```toml
 required = [
-	anbillon.com/aria2go
+	"anbillon.com/aria2go"
 ]
 ```
 or you can just use：
