@@ -4,22 +4,22 @@ Go bindings for libaria2.
 
 Usage
 ===
-* If you are using `dep`, add the flowing:
-```toml
-required = [
-	"anbillon.com/aria2go"
-]
+* If you are using `go module`, add the flowing:
+```mod
+required (
+	"github.com/coolerfall/aria2go"
+)
 ```
 or you can just use：
 ```shell
-$ go get anbillon.com/aria2go
+$ go get github.com/coolerfall/aria2go
 ```
 * Prepare libaria2, be sure you have installed `gcc`:
 ```shell
 $ cd path/to/aria2go
 $ ./prepare.sh
 ```
-or if you want to compile to arm, be sure you have installed `gnueabihf` cross compiler::
+or if you want to compile to arm, be sure you have installed `gnueabihf` cross compiler:
 ```shell
 $ ./prepare-arm.sh
 ```
@@ -29,7 +29,7 @@ $ ./prepare-arm.sh
 License
 =======
 
-    Copyright (C) 2018 Anbillon Team
+    Copyright (C) 2019 Vincent Cheung (coolingfall@gmail.com)
     
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
