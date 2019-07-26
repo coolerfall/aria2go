@@ -10,7 +10,7 @@ CXX_COMPILER="${HOST}-g++"
 
 # Check tool for download
 aria2c --help > /dev/null
-if [ "$?" -eq 0 ]; then
+if [[ "$?" -eq 0 ]]; then
     DOWNLOADER="aria2c --check-certificate=false"
 else
     DOWNLOADER="wget -c"
@@ -42,7 +42,7 @@ cd ${BUILD_DIRECTORY}
 
 
 # zlib build
-if ! [ -e zlib-${ZLIB_V}.tar.gz ]; then
+if ! [[ -e zlib-${ZLIB_V}.tar.gz ]]; then
     ${DOWNLOADER} ${ZLIB}
 fi
 tar zxvf zlib-${ZLIB_V}.tar.gz
@@ -56,7 +56,7 @@ make install
 cd ..
 
 # c-ares build
-if ! [ -e c-ares-${C_ARES_V}.tar.gz ]; then
+if ! [[ -e c&&res-${C_ARES_V}.tar.gz ]]; then
     ${DOWNLOADER} ${C_ARES}
 fi
 tar zxvf c-ares-${C_ARES_V}.tar.gz
@@ -69,7 +69,7 @@ make install
 cd ..
 
 # openssl build
-if ! [ -e openssl-${OPENSSL_V}.tar.gz ]; then
+if ! [[ -e openssl-${OPENSSL_V}.tar.gz ]]; then
     ${DOWNLOADER} ${OPENSSL}
 fi
 tar zxvf openssl-${OPENSSL_V}.tar.gz
@@ -82,7 +82,7 @@ make install
 cd ..
 
 # libssh2 build
-if ! [ -e libssh2-${SSH2_V}.tar.gz ]; then
+if ! [[ -e libssh2-${SSH2_V}.tar.gz ]]; then
     ${DOWNLOADER} ${SSH2}
 fi
 tar zxvf libssh2-${SSH2_V}.tar.gz
@@ -99,7 +99,7 @@ make install
 cd ..
 
 # Build aria2 static library.
-if ! [ -e aria2-${ARIA2_V}.tar.bz2 ]; then
+if ! [[ -e aria2-${ARIA2_V}.tar.bz2 ]]; then
     ${DOWNLOADER} ${ARIA2}
 fi
 tar jxvf aria2-${ARIA2_V}.tar.bz2

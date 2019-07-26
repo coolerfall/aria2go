@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Anbillon Team (anbillonteam@gmail.com).
+// Copyright (C) 2019 Vincent Chueng (coolingfall@gmail.com).
 
 package main
 
@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"anbillon.com/aria2go"
+	"github.com/coolerfall/aria2go"
 	"gopkg.in/cheggaaa/pb.v1"
 )
 

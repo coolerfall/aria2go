@@ -4,11 +4,11 @@ Go bindings for libaria2.
 
 Usage
 ===
-* If you are using `dep`, add the flowing:
-```toml
-required = [
-	"anbillon.com/aria2go"
-]
+* If you are using `go module`, add the flowing:
+```mod
+required (
+	"github.com/coolerfall/aria2go"
+)
 ```
 or you can just use：
 ```shell
@@ -19,7 +19,7 @@ $ go get anbillon.com/aria2go
 $ cd path/to/aria2go
 $ ./prepare.sh
 ```
-or if you want to compile to arm, be sure you have installed `gnueabihf` cross compiler::
+or if you want to compile to arm, be sure you have installed `gnueabihf` cross compiler:
 ```shell
 $ ./prepare-arm.sh
 ```

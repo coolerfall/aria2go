@@ -1,4 +1,4 @@
-// Copyright (c) 2018-present Anbillon Team (anbillonteam@gmail.com).
+// Copyright (C) 2019 Vincent Chueng (coolingfall@gmail.com).
 
 package aria2go
 
